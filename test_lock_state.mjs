@@ -274,4 +274,44 @@ test('allocation uses goodsLeft not public goods', () => {
   assert.ok(S.goodsLeft / remain < S.goods / remain);
 });
 
+
+/** Mirrors index.html bloomLowQuality (keep in sync). */
+function bloomLowQuality(q, nav, mm) {
+  q = String(q == null ? '' : q).toLowerCase();
+  if (q === 'low' || q === 'lo' || q === 'mobile') return true;
+  if (q === 'high' || q === 'hi' || q === 'desktop') return false;
+  const ua = (nav && nav.userAgent) || '';
+  const touches = +(nav && nav.maxTouchPoints) || 0;
+  let coarse = false;
+  try { coarse = !!(mm && mm('(pointer:coarse)').matches); } catch (e) {}
+  if (coarse) return true;
+  if (/iPad|iPhone|Android/i.test(ua)) return true;
+  if (/Macintosh/i.test(ua) && touches > 1) return true;
+  return false;
+}
+
+test('quality=low forces LO', () => {
+  assert.equal(bloomLowQuality('low', { userAgent: 'Mozilla/5.0 (Macintosh)', maxTouchPoints: 0 }, () => ({ matches: false })), true);
+});
+test('quality=high forces desktop even on coarse', () => {
+  assert.equal(bloomLowQuality('high', { userAgent: 'iPad', maxTouchPoints: 5 }, () => ({ matches: true })), false);
+});
+test('iPadOS Macintosh+touches uses LO', () => {
+  assert.equal(bloomLowQuality('', { userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)', maxTouchPoints: 5 }, () => ({ matches: false })), true);
+});
+test('desktop Macintosh no touch stays HQ', () => {
+  assert.equal(bloomLowQuality('', { userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)', maxTouchPoints: 0 }, () => ({ matches: false })), false);
+});
+test('classic iPad UA uses LO', () => {
+  assert.equal(bloomLowQuality('', { userAgent: 'Mozilla/5.0 (iPad; CPU OS 16_0)', maxTouchPoints: 5 }, () => ({ matches: false })), true);
+});
+test('coarse pointer tablet uses LO', () => {
+  assert.equal(bloomLowQuality('', { userAgent: 'Mozilla/5.0 (X11; Linux x86_64)', maxTouchPoints: 0 }, () => ({ matches: true })), true);
+});
+test('quality override does not depend on win flags', () => {
+  // documentation: quality must not alter lottery — function has no win/goods inputs
+  assert.equal(bloomLowQuality('low', { userAgent: 'x', maxTouchPoints: 0 }, () => ({ matches: false })), true);
+  assert.equal(bloomLowQuality('high', { userAgent: 'iPhone', maxTouchPoints: 5 }, () => ({ matches: true })), false);
+});
+
 console.log('All tests passed:', passed);

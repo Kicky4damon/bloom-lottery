@@ -25,3 +25,14 @@
 - 단일 `index.html` (폰트·타이틀 PNG base64 내장)
 - Three.js r147 (jsDelivr CDN)
 - GitHub Pages 정적 호스팅
+
+## 렌더 품질
+
+- 아이패드·휴대폰은 자동으로 **경량 3D 티어**를 씁니다 (꽃 연출 부하 완화). 데스크톱은 기존 고품질 티어입니다.
+- iPadOS가 Safari에서 Macintosh로 보이는 경우에도 터치 포인트로 경량 티어를 켭니다.
+- 강제 테스트: `?quality=low` (경량), `?quality=high` (고품질). 추첨 결과·확률에는 영향 없음.
+- 데모 결과 강제(샘플 전용): `?forceWin=1`, `?forceLose=1`, `?forceFake=1` — 실데이터/명단과 무관.
+
+## 검증용 메모
+
+세로·가로 모두 동작합니다. 현장 태블릿은 Safari + 인터넷 필요.
