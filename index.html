@@ -219,7 +219,7 @@ let COLS=5,ROWS=14;
 function buildBoard(){board.innerHTML='';const act=active();const n=act.length;COLS=n<=24?4:n<=80?5:n<=130?6:n<=170?7:8;ROWS=Math.max(1,Math.ceil(n/COLS));
  act.forEach((id,i)=>{const t=document.createElement('div');t.className='tab';t.dataset.i=i;t.dataset.id=id;t.dataset.len=id.length+1;
   t.innerHTML='<div class="res"></div><div class="shadow"></div><div class="flap"><div class="shade"></div><b>@'+id+'</b><i class="foil"></i><div class="sheen"></div></div>';
-  const r=DB.results[id];if(r&&r.revealed!==false||r&&id!==PENDING)setRes(t,r.win);board.appendChild(t)});
+  const r=DB.results[id];if(r&&r.revealed)setRes(t,r.win);board.appendChild(t)});
  requestAnimationFrame(()=>{fitBoard();shrinkFit()});render()}
 function setRes(t,win){const r=t.querySelector('.res');r.className='res '+(win?'win':'lose');r.innerHTML=win?'🌸<span>'+mask(t.dataset.id)+'</span>':'🌱<span>아쉬워요!</span>';t.classList.add('open')}
 function mask(id){const keep=Math.max(2,Math.ceil(id.length/2));return '*'.repeat(Math.max(3,id.length-keep))+id.slice(-keep)}
@@ -246,7 +246,18 @@ function toast(m){const e=$('toast');e.textContent=m;e.classList.add('on');clear
 let busy=false;
 function pull(t,opts={}){
  if(busy||t.classList.contains('open'))return;
- const id=t.dataset.id;if(DB.results[id]){setRes(t,DB.results[id].win);render();return}
+ const id=t.dataset.id;
+ let commit=()=>{if(!DB.results[id])return;DB.results[id].revealed=true;saveDB();if(PENDING===id)PENDING=null;syncSheet(Object.assign({id},DB.results[id]))};
+ const finishReveal=(win)=>{commit();t.classList.remove('pending');t.classList.add('peel');
+  setTimeout(()=>{setRes(t,win);t.classList.remove('peel','active');render();
+   guardUntil=performance.now()+700;setTimeout(()=>{busy=false;board.classList.remove('locked')},700)},1050)};
+ const beginStage=(kind,win)=>{PENDING=id;busy=true;board.classList.add('locked');t.classList.add('active','pending');board.classList.add('dim');
+  setTimeout(()=>showStage(id,kind,()=>finishReveal(win)),700)};
+ if(DB.results[id]){
+  const rec=DB.results[id];
+  if(rec.revealed){setRes(t,rec.win);render();return}
+  // incomplete draw (e.g. reload mid-stage): keep rolled outcome, resume reveal; do not re-roll
+  beginStage(rec.kind||(rec.win?'win':'lose'),!!rec.win);return}
  const S=stats(),remain=active().filter(x=>!DB.results[x]).length;
  let win=remain>0&&Math.random()<S.goods/remain;
  if((Q.get('forceWin')==='1'||Q.get('forceFake')==='1')&&!opts.silent)win=true; if(Q.get('forceLose')==='1'&&!opts.silent)win=false;
@@ -254,13 +265,10 @@ function pull(t,opts={}){
  const kind=!win?'lose':Q.get('forceFake')==='1'?'fake':Q.get('forceWin')==='1'?'win':(Math.random()<.45?'fake':'win');
  // persist immediately (reload can't re-roll); hidden from UI until reveal
  DB.results[id]={win,kind,ts:new Date().toISOString(),revealed:!!opts.silent};saveDB();
- const commit=()=>{DB.results[id].revealed=true;saveDB();if(PENDING===id)PENDING=null;syncSheet(Object.assign({id},DB.results[id]))};
  if(opts.silent){commit();setRes(t,win);render();return}
- PENDING=id;busy=true;board.classList.add('locked');t.classList.add('active','pending');board.classList.add('dim');
- setTimeout(()=>showStage(id,kind,()=>{commit();t.classList.remove('pending');t.classList.add('peel');
-   setTimeout(()=>{setRes(t,win);t.classList.remove('peel','active');render()},1050)}),700);
+ beginStage(kind,win);
 }
-function closeAll(){board.classList.remove('dim');guardUntil=performance.now()+700;setTimeout(()=>{busy=false;board.classList.remove('locked')},700);newDemo()}
+function closeAll(){board.classList.remove('dim');guardUntil=performance.now()+700;newDemo()}
 /* GACHA STAGE */
 let W=null;
 function showStage(id,kind,done){
