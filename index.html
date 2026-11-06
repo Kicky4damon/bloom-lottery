@@ -213,8 +213,12 @@ function syncSheet(rec){/* TODO Apps Script: google.script.run.appendResult(rec)
 saveDB();
 let PENDING=null; // id currently being drawn (hidden from counters/board until reveal)
 const active=()=>DB.list.filter(id=>!DB.exclude.includes(id));
-function stats(){const R=DB.results,ids=Object.keys(R).filter(id=>id!==PENDING),win=ids.filter(id=>R[id].win).length,act=active();
- const total=new Set([...act,...ids]).size;return{goods:Math.max(0,DB.goods-win),win,opened:ids.length,total,GOODS:DB.goods}}
+function stats(){const R=DB.results,act=active();
+ // Public UI: only completed reveals. Allocation: all stored outcomes (incl. unrevealed) reserve wins so goods can't oversell.
+ const all=Object.keys(R), shown=all.filter(id=>R[id].revealed);
+ const winShown=shown.filter(id=>R[id].win).length, winReserved=all.filter(id=>R[id].win).length;
+ const total=new Set([...act,...all]).size;
+ return{goods:Math.max(0,DB.goods-winShown),goodsLeft:Math.max(0,DB.goods-winReserved),win:winShown,opened:shown.length,total,GOODS:DB.goods}}
 let COLS=5,ROWS=14;
 function buildBoard(){board.innerHTML='';const act=active();const n=act.length;COLS=n<=24?4:n<=80?5:n<=130?6:n<=170?7:8;ROWS=Math.max(1,Math.ceil(n/COLS));
  act.forEach((id,i)=>{const t=document.createElement('div');t.className='tab';t.dataset.i=i;t.dataset.id=id;t.dataset.len=id.length+1;
@@ -259,9 +263,9 @@ function pull(t,opts={}){
   // incomplete draw (e.g. reload mid-stage): keep rolled outcome, resume reveal; do not re-roll
   beginStage(rec.kind||(rec.win?'win':'lose'),!!rec.win);return}
  const S=stats(),remain=active().filter(x=>!DB.results[x]).length;
- let win=remain>0&&Math.random()<S.goods/remain;
+ let win=remain>0&&Math.random()<S.goodsLeft/remain;
  if((Q.get('forceWin')==='1'||Q.get('forceFake')==='1')&&!opts.silent)win=true; if(Q.get('forceLose')==='1'&&!opts.silent)win=false;
- if(S.goods<=0)win=false;
+ if(S.goodsLeft<=0)win=false;
  const kind=!win?'lose':Q.get('forceFake')==='1'?'fake':Q.get('forceWin')==='1'?'win':(Math.random()<.45?'fake':'win');
  // persist immediately (reload can't re-roll); hidden from UI until reveal
  DB.results[id]={win,kind,ts:new Date().toISOString(),revealed:!!opts.silent};saveDB();
