@@ -95,8 +95,10 @@ footer{display:flex;gap:10px;align-items:center}
 #win .ripple{position:absolute;width:14px;height:14px;margin:-7px 0 0 -7px;border-radius:50%;border:1.5px solid rgba(255,206,64,.55);pointer-events:none;transform:scale(0);opacity:.7;will-change:transform,opacity;animation:bloomRipple .7s ease-out forwards;z-index:40}
 @keyframes bloomRipple{to{transform:scale(18);opacity:0}}
 @media (prefers-reduced-motion:reduce){#win .ripple{animation-duration:.01ms;opacity:0}}
-.tab.anon .flap{display:flex;align-items:center;justify-content:center}
+.tab.anon:not(.open) .flap{display:flex;align-items:center;justify-content:center}
 .tab .flap .bloom-sym{width:min(42%,calc(var(--fs,18px)*1.55));height:auto;max-height:62%;display:block;filter:drop-shadow(0 0 8px rgba(255,206,64,.35));pointer-events:none;flex-shrink:0}
+/* .tab.open must beat .tab.anon for flap hide — result 🌸/🌱 lives in .res under flap */
+.tab.open .flap,.tab.open .shadow{display:none}
 #board.locked{pointer-events:none}
 #win canvas{position:absolute;inset:0;width:100%!important;height:100%!important}
 #win .txt{position:absolute;left:0;right:0;bottom:12%;text-align:center;pointer-events:none}

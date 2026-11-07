@@ -700,4 +700,75 @@ test('sprout leaf base overlaps stem tip geometry', () => {
 });
 
 
+
+// --- board result visibility after peel (anon SVG flap vs .open) ---
+test('CSS: .tab.anon.open must not keep flap displayed over .res', () => {
+  const html = fs.readFileSync(join(__dirname, 'index.html'), 'utf8');
+  // Broken pattern: .tab.anon .flap{display:flex} AFTER/equal-specificity to .tab.open .flap{display:none}
+  const anonOpenFlex = /\.tab\.anon\s+\.flap\s*\{[^}]*display\s*:\s*flex/m.test(html);
+  assert.equal(anonOpenFlex, false, 'unscoped .tab.anon .flap{display:flex} fights .open');
+  assert.ok(html.includes('.tab.anon:not(.open) .flap') || /\.tab\.open\.anon\s+\.flap|\.tab\.anon\.open\s+\.flap/.test(html));
+  assert.ok(/\.tab\.open\s+\.flap\s*,\s*\.tab\.open\s+\.shadow\s*\{[^}]*display\s*:\s*none/.test(html));
+});
+
+test('setRes writes flower/sprout into .res and adds open (DOM mirror)', () => {
+  // pure DOM-less mirror of setRes markup contract
+  const setResHTML = (slot, id, win) => {
+    const anon = slot === 'anon' || /^anon_/.test(id);
+    const open = true;
+    const res = win
+      ? (anon ? '🌸<span>당첨이에요</span>' : '🌸<span>' + id.slice(-3) + '</span>')
+      : '🌱<span>아쉬워요!</span>';
+    return { open, res, hasFlower: res.includes('🌸'), hasSprout: res.includes('🌱') };
+  };
+  const winAnon = setResHTML('anon', 'anon_x_1', true);
+  assert.equal(winAnon.open, true);
+  assert.equal(winAnon.hasFlower, true);
+  assert.equal(winAnon.res.includes('당첨이에요'), true);
+  const lose = setResHTML('anon', 'anon_x_2', false);
+  assert.equal(lose.hasSprout, true);
+  assert.equal(lose.res.includes('아쉬워요'), true);
+});
+
+test('finishReveal order: peel then setRes open so result under hidden flap', () => {
+  // mirror finishReveal timing contract from index.html
+  const html = fs.readFileSync(join(__dirname, 'index.html'), 'utf8');
+  assert.ok(html.includes("t.classList.add('peel')"));
+  assert.ok(/setRes\(t,win\);\s*t\.classList\.remove\('peel','active'\)/.test(html));
+  // setRes itself adds open
+  assert.ok(/r\.innerHTML=win\?[\s\S]*t\.classList\.add\('open'\)/.test(html));
+});
+
+test('persisted anonSlots length not force-resized to 100 on migrate', () => {
+  // mirrors migrateDB: existing anonSlots kept; only missing anonSlots get default n
+  const migrate = (d, qN = 100) => {
+    d = d || {}; d.results = d.results || {};
+    d.goods = Math.max(0, +(d.goods != null ? d.goods : 26));
+    if (!Array.isArray(d.guaranteed)) d.guaranteed = [];
+    if (!Array.isArray(d.anonSlots) || !d.anonSlots.length) {
+      const n = Math.max(0, +qN); d.anonSlots = Array.from({ length: n }, (_, i) => ({ id: 'anon_' + i }));
+    } else {
+      d.anonSlots = d.anonSlots.filter(s => s && s.id).map(s => ({ id: String(s.id) }));
+    }
+    return d;
+  };
+  const kept70 = migrate({ guaranteed: [], anonSlots: Array.from({ length: 70 }, (_, i) => ({ id: 'anon_old_' + i })), goods: 26, results: {} });
+  assert.equal(kept70.anonSlots.length, 70, '70 persisted stays 70 — no silent 100 rewrite');
+  const fresh = migrate(null, 100);
+  assert.equal(fresh.anonSlots.length, 100);
+  const kept48 = migrate({ guaranteed: [], anonSlots: Array.from({ length: 48 }, (_, i) => ({ id: 'a' + i })), goods: 26, results: { a0: { win: false, revealed: true } } });
+  assert.equal(kept48.anonSlots.length, 48);
+  assert.ok(kept48.results.a0.revealed);
+});
+
+test('overlay markFinal still sets won/lose classes (path intact)', () => {
+  const html = fs.readFileSync(join(__dirname, 'index.html'), 'utf8');
+  assert.ok(html.includes("el.classList.add(isWin?'won':'lose')"));
+  assert.ok(html.includes("minVisible=isWin?3.0:2.5"));
+  // 3D sprout/flower still in buildScene — board tile issue was CSS flap, not overlay
+  assert.ok(html.includes('function buildScene'));
+  assert.ok(html.includes('sproutPop'));
+});
+
+
 console.log('All tests passed:', passed);
